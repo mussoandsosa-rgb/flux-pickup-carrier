@@ -1,11 +1,8 @@
-/**
- * Pickup Carrier – Script de Checkout con Nube SDK (post 30/10)
- * Reemplaza las opciones de retiro según tags de los productos (madryn/trelew/rawson/gaiman).
- */
+<script>
 (function () {
-  // Cambiá esta URL por la de tu deploy en Render/Railway/Vercel si es diferente
   const CARRIER_ENDPOINT = "https://flux-pickup-carrier.onrender.com/rates";
   const REQUEST_TIMEOUT_MS = 6000;
+  const STORE_ID = 6865334; // ← tu tienda de prueba (variable: podés setearlo por liquid/config)
 
   function fetchWithTimeout(url, opts = {}, t = REQUEST_TIMEOUT_MS) {
     return new Promise((resolve, reject) => {
@@ -36,7 +33,7 @@
       const res = await fetchWithTimeout(CARRIER_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: cartItems })
+        body: JSON.stringify({ store_id: STORE_ID, items: cartItems })
       });
       const data = await res.json();
       const rates = Array.isArray(data?.rates) ? data.rates : [];
@@ -44,11 +41,8 @@
       const api = window?.NuvemShop?.Checkout;
       if (!api) return;
 
-      if (typeof api.updateShippingOptions === "function") {
-        api.updateShippingOptions(rates);
-      } else if (typeof api.setShippingOptions === "function") {
-        api.setShippingOptions(rates);
-      }
+      if (typeof api.updateShippingOptions === "function") api.updateShippingOptions(rates);
+      else if (typeof api.setShippingOptions === "function") api.setShippingOptions(rates);
 
       if (rates.length === 1) {
         showNotice(`Mostramos únicamente: “${rates[0].name}”.`);
@@ -82,8 +76,7 @@
   function attachHandlers(Checkout) {
     const pick = (ctx) => {
       const items = (ctx?.cart?.items || []).map(i => ({
-        product_id: i.product_id,
-        variant_id: i.variant_id,
+        product_id: i.product_id,      // SOLO usamos product_id y quantity
         quantity: i.quantity
       }));
       updatePickupOptions(items);
@@ -93,12 +86,10 @@
       Checkout.on("shipping.update", pick);
       Checkout.on("cart.update", pick);
     } else {
-      try {
-        const g = Checkout.getState?.();
-        pick(g);
-      } catch (_) {}
+      try { pick(Checkout.getState?.()); } catch (_) {}
     }
   }
 
   ready(mount);
 })();
+</script>
